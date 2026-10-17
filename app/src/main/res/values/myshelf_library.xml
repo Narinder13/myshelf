@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="myshelf_brand">MyShelf</string>
+    <string name="myshelf_home">Home</string>
+    <string name="myshelf_library">Library</string>
+    <string name="myshelf_collections">Collections</string>
+    <string name="myshelf_library_empty_title">Your next read belongs here</string>
+    <string name="myshelf_library_empty_body">Add your PDF and EPUB books to build a library of your own.</string>
+    <string name="myshelf_no_matches">No books match your search or filters</string>
+    <string name="myshelf_reset_filters">Clear search and filters</string>
+    <string name="myshelf_close_search">Close search</string>
+    <string name="myshelf_more">More</string>
+</resources>

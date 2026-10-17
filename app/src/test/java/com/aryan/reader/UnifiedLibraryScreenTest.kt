@@ -14,6 +14,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class UnifiedLibraryScreenTest {
@@ -45,6 +46,36 @@ class UnifiedLibraryScreenTest {
         val newer = book("Newer", 60f, timestamp = 20L)
 
         assertSame(newer, findContinueReadingBook(listOf(older, newer)))
+    }
+
+    @Test
+    fun continueReadingHidesWhenNoBookHasBeenStarted() {
+        assertNull(findContinueReadingBook(listOf(book("Unread", null), book("New", 0f))))
+        assertNull(findContinueReadingBook(emptyList()))
+    }
+
+    @Test
+    fun continueReadingUsesSavedPositionWhenPercentageIsUnknown() {
+        val started = book("First page", null).copy(lastPage = 0)
+        assertSame(started, findContinueReadingBook(listOf(started, book("New import", null, 50L))))
+    }
+
+    @Test
+    fun continueReadingIgnoresCompletedDeletedAndAudiobooks() {
+        val reading = book("Reading", 24f)
+        assertSame(reading, findContinueReadingBook(listOf(
+            reading,
+            book("Done", 100f, 100L).copy(lastPage = 200),
+            book("Deleted", 50f, 100L).copy(isDeleted = true),
+            book("Audio", 50f, 100L).copy(type = FileType.AUDIOBOOK),
+            book("Invalid", Float.NaN, 100L),
+        )))
+    }
+
+    @Test
+    fun continueReadingHonorsPersistedReadingTimestamp() {
+        val reading = book("Reading", 24f, 1L).copy(readingPositionModifiedTimestamp = 200L)
+        assertSame(reading, findContinueReadingBook(listOf(reading, book("Older read", 50f, 100L))))
     }
 
     @Test

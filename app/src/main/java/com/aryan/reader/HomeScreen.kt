@@ -73,7 +73,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -111,46 +110,15 @@ fun RecentFileCard(
     isDownloading: Boolean,
     usePdfFileNameAsDisplayName: Boolean = false,
 ) {
-    val progressPercent = item.progressPercentage?.takeIf { it > 0f }?.coerceIn(0f, 100f)?.toInt()
-    val authorText = item.author?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) } ?: " "
-    com.aryan.reader.shared.ui.SharedAndroidHomeRecentCard(
-        bookId = item.bookId,
-        title = item.cardTitle(usePdfFileNameAsDisplayName),
-        author = authorText,
-        progressPercent = progressPercent,
-        isAvailable = item.isAvailable,
+    MyShelfBookCard(
+        item = item,
         isDownloading = isDownloading,
         isSelected = isSelected,
-        hasCustomCover = !item.coverImagePath.isNullOrBlank(),
-        showStatusBadges = item.sourceFolderUri != null || item.isOpdsStream() || isPinned,
-        unavailableDescription = stringResource(R.string.not_available_locally),
-        selectedDescription = stringResource(R.string.content_desc_selected),
+        isPinned = isPinned,
+        usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
         onClick = onClick,
         onLongClick = onLongClick,
         modifier = modifier,
-        cover = { coverModifier ->
-                ThemedBookCover(
-                    item = item,
-                    contentDescription = item.displayName,
-                    contentScale = ContentScale.Crop,
-                    modifier = coverModifier,
-                )
-        },
-        statusBadges = { badgeModifier ->
-                    FileStatusBadges(
-                        item = item,
-                        isPinned = isPinned,
-                        overlay = true,
-                modifier = badgeModifier,
-                    )
-        },
-        fileTypeBadge = { compact ->
-                    FileTypeBadge(
-                        type = item.type,
-                        overlay = true,
-                compact = compact,
-                    )
-        },
     )
 }
 
