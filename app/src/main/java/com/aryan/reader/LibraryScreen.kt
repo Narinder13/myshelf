@@ -19,43 +19,21 @@ package com.aryan.reader
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.ImageLoader
@@ -73,7 +51,6 @@ import com.aryan.reader.shared.Tag
 import com.aryan.reader.shared.ui.SharedAndroidFolderStats
 import com.aryan.reader.shared.ui.SharedAndroidFolderSyncScreen
 import com.aryan.reader.shared.ui.SharedAndroidFolderSyncStrings
-import com.aryan.reader.shared.ui.SharedMobileLibraryBookListCardFrame
 import com.aryan.reader.shared.ui.SharedMobileLibraryFilterDialog
 import com.aryan.reader.shared.ui.SharedMobileLibraryFilterLabels
 import java.text.SimpleDateFormat
@@ -90,121 +67,14 @@ internal fun LibraryListItem(
     isDownloading: Boolean,
     usePdfFileNameAsDisplayName: Boolean = false,
 ) {
-    SharedMobileLibraryBookListCardFrame(
-        isAvailable = item.isAvailable,
+    MyShelfLibraryListItem(
+        item = item,
         isSelected = isSelected,
+        isPinned = isPinned,
+        isDownloading = isDownloading,
+        usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
         onClick = onItemClick,
         onLongClick = onItemLongClick,
-        modifier = Modifier.testTag("LibraryBookItem_${item.bookId}"),
-        cover = {
-            ThemedBookCover(
-                item = item,
-                contentDescription = item.displayName,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (isSelected) {
-                Box(
-                    modifier = Modifier.matchParentSize().background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                    ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = stringResource(R.string.content_desc_selected),
-                        modifier = Modifier.size(36.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
-                            .padding(6.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                    )
-                }
-            }
-        },
-        header = {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.cardTitle(usePdfFileNameAsDisplayName),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    minLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 20.sp,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = item.cardAuthor(),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    minLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (item.sourceFolderUri != null || item.isOpdsStream() || isPinned) {
-                FileStatusBadges(item = item, isPinned = isPinned)
-            }
-        },
-        metadata = {
-            FileTypeBadge(type = item.type, overlay = false)
-            if (item.tags.isNotEmpty()) {
-                BookTagChipsRow(
-                    tags = item.tags,
-                    compact = true,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-            } else {
-                Spacer(Modifier.weight(1f))
-            }
-            if (!item.isAvailable) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = if (isDownloading) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.errorContainer
-                    },
-                    contentColor = if (isDownloading) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    },
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (isDownloading) {
-                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(
-                                Icons.Filled.Info,
-                                contentDescription = stringResource(R.string.not_available_locally),
-                                modifier = Modifier.size(14.dp),
-                            )
-                        }
-                        Text(
-                            text = if (isDownloading) {
-                                stringResource(R.string.status_downloading)
-                            } else {
-                                stringResource(R.string.not_available_locally)
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
-                }
-            }
-        },
-        progress = {
-            ReadingProgressSection(
-                progressPercentage = item.progressPercentage,
-                compact = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
     )
 }
 

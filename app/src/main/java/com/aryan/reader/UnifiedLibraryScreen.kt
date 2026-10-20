@@ -21,12 +21,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -94,6 +102,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,7 +142,8 @@ import com.aryan.reader.shared.ui.SharedAnnotationExportFormatDialog
 import com.aryan.reader.shared.ui.sharedAnnotationExportFormatOptions
 import com.aryan.reader.shared.ui.activeFilterCount
 import com.aryan.reader.shared.ui.matchesMobileUnifiedLibraryFilter
-import com.aryan.reader.shared.ui.mobileUnifiedContinueReadingBook
+import com.aryan.reader.ui.theme.MyShelfLibraryTheme
+import com.aryan.reader.ui.theme.MyShelfLayout
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -157,6 +167,19 @@ internal fun shouldAutoStartTtsAudiobook(
     ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun UnifiedLibraryScreen(
+    viewModel: MainViewModel,
+    navController: NavHostController,
+    widthSizeClass: WindowWidthSizeClass,
+) {
+    MyShelfLibraryTheme {
+        MyShelfUnifiedLibraryContent(viewModel, navController, widthSizeClass)
+    }
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@Composable
+private fun MyShelfUnifiedLibraryContent(
     viewModel: MainViewModel,
     navController: NavHostController,
     widthSizeClass: WindowWidthSizeClass,
@@ -187,7 +210,10 @@ fun UnifiedLibraryScreen(
 
         else -> null
     }
-    var selectedShelfId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedShelfId = uiState.viewingShelfId
+    var browseLibrary by rememberSaveable { mutableStateOf(false) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    val sectionStateHolder = rememberSaveableStateHolder()
     var filter by rememberSaveable { mutableStateOf(UnifiedLibraryFilter.ALL) }
     var query by rememberSaveable { mutableStateOf("") }
     // Filtering + sorting is O(n log n) on Main; debounce keystrokes so each
@@ -387,14 +413,58 @@ fun UnifiedLibraryScreen(
     val advancedFilterCount = uiState.libraryFilters.activeFilterCount()
     val selectedItems = uiState.contextualActionItems
 
-    fun navigateShelfUp() {
-        val parentId = selectedShelfId?.let { id -> uiState.shelves.find { it.id == id } }?.parentShelfId
-        selectedShelfId = parentId
+    fun openLibraryBook(item: RecentFileItem) {
+        if (item.type == FileType.AUDIOBOOK && selectedItems.isEmpty()) {
+            importedAudiobooks.firstOrNull { it.bookId == item.bookId }
+                ?.let { audiobookPlayerItem = it.toUiItem() }
+        } else viewModel.onRecentFileClicked(item)
     }
 
-    BackHandler(enabled = selectedItems.isNotEmpty() || selectedShelfId != null) {
+    fun importBooks() {
+        launchDocumentPicker {
+            filePicker.launch(if (uiState.useStrictFileFilter) MainViewModel.SUPPORTED_MIME_TYPES else arrayOf("*/*"))
+        }
+    }
+
+    fun navigatePrimary(destination: MyShelfDestination) {
+        viewModel.clearContextualAction()
+        shelfIdAddingBooks = null
+        when (destination) {
+            MyShelfDestination.HOME -> {
+                browseLibrary = false
+                viewModel.setUnifiedLibrarySection(UnifiedLibrarySection.HOME.persistedValue)
+            }
+            MyShelfDestination.LIBRARY -> {
+                browseLibrary = true
+                viewModel.setUnifiedLibrarySection(UnifiedLibrarySection.HOME.persistedValue)
+            }
+            MyShelfDestination.COLLECTIONS -> viewModel.setUnifiedLibrarySection(UnifiedLibrarySection.SHELVES.persistedValue)
+        }
+    }
+
+    val primaryDestination = when (section) {
+        UnifiedLibrarySection.HOME -> if (browseLibrary) MyShelfDestination.LIBRARY else MyShelfDestination.HOME
+        UnifiedLibrarySection.SHELVES -> MyShelfDestination.COLLECTIONS
+        else -> null
+    }
+
+    fun navigateShelfUp() {
+        val parentId = selectedShelfId?.let { id -> uiState.shelves.find { it.id == id } }?.parentShelfId
+        if (parentId == null) viewModel.unselectShelf() else viewModel.navigateToShelf(parentId)
+    }
+
+    BackHandler(enabled = selectedItems.isNotEmpty() ||
+        (section == UnifiedLibrarySection.SHELVES && (selectedShelfId != null || shelfIdAddingBooks != null)) ||
+        (section == UnifiedLibrarySection.HOME && (browseLibrary || searchExpanded))) {
         if (selectedItems.isNotEmpty()) {
             viewModel.clearContextualAction()
+        } else if (section == UnifiedLibrarySection.SHELVES && shelfIdAddingBooks != null) {
+            shelfIdAddingBooks = null
+        } else if (section == UnifiedLibrarySection.HOME) {
+            if (searchExpanded) {
+                query = ""
+                searchExpanded = false
+            } else browseLibrary = false
         } else {
             navigateShelfUp()
         }
@@ -462,7 +532,7 @@ fun UnifiedLibraryScreen(
             UnifiedLibraryDrawer(
                 currentSection = section,
                 onSectionSelected = { destination ->
-                    selectedShelfId = null
+                    viewModel.unselectShelf()
                     scope.launch {
                         drawerState.close()
                         viewModel.setUnifiedLibrarySection(destination.persistedValue)
@@ -487,24 +557,34 @@ fun UnifiedLibraryScreen(
             )
         }
     ) {
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
+        val useRail = maxWidth >= MyShelfLayout.railBreakpoint
+        Row(Modifier.fillMaxSize()) {
+            if (useRail) MyShelfNavigation(primaryDestination, true, ::navigatePrimary)
+            Box(Modifier.weight(1f).fillMaxHeight()) {
         com.aryan.reader.shared.ui.SharedAndroidUnifiedScaffold(
             section = section,
             showingShelf = selectedShelfId != null,
             importDescription = stringResource(R.string.unified_library_import),
             addAudiobookDescription = stringResource(R.string.listen_add),
             newShelfLabel = stringResource(R.string.fab_new_shelf),
-            onImport = { launchDocumentPicker { filePicker.launch(if (uiState.useStrictFileFilter) MainViewModel.SUPPORTED_MIME_TYPES else arrayOf("*/*")) } },
+            onImport = ::importBooks,
             onAddAudiobook = { showAudiobookAddSheet = true },
             onNewShelf = viewModel::showCreateShelfDialog,
             canPullToSync = canPullToSync,
             isRefreshing = uiState.isRefreshing,
             onRefresh = viewModel::refreshLibrary,
+            showFloatingActionButton = section == UnifiedLibrarySection.AUDIOBOOKS,
             bottomBar = {
+                Column {
                 val activeTtsBook = ttsPlayback.bookId
                     ?.takeIf { ttsPlayback.playbackSource == "AUDIOBOOK_TTS" }
                     ?.let { id -> uiState.rawLibraryFiles.firstOrNull { it.bookId == id } }
                 val activeImported = importedPlayback.bookId
                     ?.let { id -> importedAudiobooks.firstOrNull { it.bookId == id } }
+                Box(
+                    if (useRail) Modifier else Modifier.consumeWindowInsets(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                ) {
                 when {
                     activeTtsBook != null -> {
                         val item = activeTtsBook.toTtsAudiobookUiItem(bookTtsProgress.firstOrNull { it.bookId == activeTtsBook.bookId })
@@ -553,6 +633,9 @@ fun UnifiedLibraryScreen(
                         )
                     }
                 }
+                }
+                if (!useRail) MyShelfNavigation(primaryDestination, false, ::navigatePrimary)
+                }
             },
             topBar = {
                 // Selection actions are shelf-scoped while a shelf is open in the Shelves
@@ -599,48 +682,98 @@ fun UnifiedLibraryScreen(
                         onClearSelectionClick = viewModel::clearContextualAction
                     )
                 } else {
-                    UnifiedLibraryTopBar(
-                        section = section,
-                        selectedShelf = selectedShelfId?.let { id -> uiState.shelves.find { it.id == id } },
-                        onMenuClick = { scope.launch { drawerState.open() } },
+                    val selectedShelf = selectedShelfId?.takeIf { section == UnifiedLibrarySection.SHELVES }
+                        ?.let { id -> uiState.shelves.find { it.id == id } }
+                    MyShelfTopBar(
+                        title = selectedShelf?.name ?: when (section) {
+                            UnifiedLibrarySection.HOME -> stringResource(if (browseLibrary) R.string.myshelf_library else R.string.myshelf_brand)
+                            UnifiedLibrarySection.SHELVES -> stringResource(R.string.myshelf_collections)
+                            UnifiedLibrarySection.AUDIOBOOKS -> stringResource(R.string.listen_title)
+                            UnifiedLibrarySection.FOLDERS -> stringResource(R.string.tab_folders)
+                            UnifiedLibrarySection.CATALOGS -> stringResource(R.string.tab_catalogs)
+                        },
+                        showingShelf = selectedShelf != null,
+                        showBookActions = section == UnifiedLibrarySection.HOME,
+                        searchExpanded = searchExpanded,
+                        query = query,
+                        onMenu = { scope.launch { drawerState.open() } },
                         onBackFromShelf = ::navigateShelfUp,
-                        uiState = uiState,
-                        onAccountClick = { scope.launch { accountDrawerState.open() } },
-                        searchQuery = if (section == UnifiedLibrarySection.HOME) query else null,
-                        onSearchQueryChange = { query = it },
+                        onAccount = { scope.launch { accountDrawerState.open() } },
+                        accountAvatar = { UnifiedProfileAvatar(uiState) },
+                        onSearch = { browseLibrary = true; searchExpanded = true },
+                        onCloseSearch = { searchExpanded = false },
+                        onQueryChange = { query = it },
+                        onImport = ::importBooks,
                     )
                 }
             },
             sectionContent = { displayedSection, padding ->
+            val stateKey = when (displayedSection) {
+                UnifiedLibrarySection.HOME -> "home/$browseLibrary"
+                UnifiedLibrarySection.SHELVES -> "shelves/${selectedShelfId ?: "root"}/${shelfIdAddingBooks ?: "browse"}"
+                else -> displayedSection.name
+            }
+            sectionStateHolder.SaveableStateProvider(stateKey) {
             when (displayedSection) {
-                UnifiedLibrarySection.HOME -> UnifiedLibraryHome(
+                UnifiedLibrarySection.HOME -> if (!browseLibrary) MyShelfHome(
+                    modifier = Modifier.padding(padding),
+                    allBooks = uiState.rawLibraryFiles,
+                    continueReading = continueReading,
+                    shelves = uiState.shelves,
+                    isLoading = uiState.isLoading,
+                    downloadingBookIds = uiState.downloadingBookIds,
+                    usePdfFileNameAsDisplayName = uiState.usePdfFileNameAsDisplayName,
+                    onBookClick = ::openLibraryBook,
+                    onBookLongClick = viewModel::onRecentItemLongPress,
+                    onViewLibrary = { navigatePrimary(MyShelfDestination.LIBRARY) },
+                    onShelfSelected = { shelf ->
+                        viewModel.navigateToShelf(shelf.id)
+                        viewModel.setUnifiedLibrarySection(UnifiedLibrarySection.SHELVES.persistedValue)
+                    },
+                    onCreateShelf = viewModel::showCreateShelfDialog,
+                    onImport = ::importBooks,
+                    selectedBookIds = selectedItems.mapTo(mutableSetOf()) { it.bookId },
+                    pinnedBookIds = uiState.pinnedLibraryBookIds,
+                    openTabsContent = {
+                        com.aryan.reader.shared.ui.SharedAndroidActiveTabsRow(
+                            openTabs = uiState.openTabs,
+                            tabsEnabled = uiState.isTabsEnabled,
+                            activeTabsLabel = stringResource(R.string.active_tabs),
+                            closeAllTabsDescription = stringResource(R.string.close_all_tabs),
+                            closeTabDescription = stringResource(R.string.close_tab),
+                            itemKey = { it.bookId },
+                            itemTitle = { it.cardTitle(uiState.usePdfFileNameAsDisplayName) },
+                            onItemClick = ::openLibraryBook,
+                            onCloseTab = { viewModel.closeTab(it.bookId) },
+                            onCloseAllTabs = { showCloseAllTabsDialog = true },
+                        )
+                    },
+                ) else MyShelfLibrary(
                     modifier = Modifier.padding(padding),
                     books = visibleBooks,
-                    continueReading = continueReading,
+                    totalBookCount = uiState.rawLibraryFiles.size,
                     filter = filter,
-                    query = debouncedQuery,
                     sortOrder = uiState.sortOrder,
                     advancedFilterCount = advancedFilterCount,
                     useListView = uiState.unifiedLibraryListView,
+                    isLoading = uiState.isLoading,
                     selectedBookIds = uiState.contextualActionItems.mapTo(mutableSetOf()) { it.bookId },
                     pinnedBookIds = uiState.pinnedLibraryBookIds,
                     downloadingBookIds = uiState.downloadingBookIds,
                     usePdfFileNameAsDisplayName = uiState.usePdfFileNameAsDisplayName,
                     onFilterChange = { filter = it },
-                    onControlsClick = { showLibraryControls = true },
-                    onAdvancedFiltersClick = { showAdvancedFilters = true },
+                    onControls = { showLibraryControls = true },
+                    onAdvancedFilters = { showAdvancedFilters = true },
                     onListViewChange = viewModel::setUnifiedLibraryListView,
-                    widthSizeClass = widthSizeClass,
-                    onBookClick = { item ->
-                        if (item.type == FileType.AUDIOBOOK) {
-                            importedAudiobooks.firstOrNull { it.bookId == item.bookId }?.let { audiobookPlayerItem = it.toUiItem() }
-                        } else viewModel.onRecentFileClicked(item)
-                    },
+                    onBookClick = ::openLibraryBook,
                     onBookLongClick = viewModel::onRecentItemLongPress,
-                    openTabs = uiState.openTabs,
-                    tabsEnabled = uiState.isTabsEnabled,
-                    onCloseTab = { viewModel.closeTab(it.bookId) },
-                    onCloseAllTabs = { showCloseAllTabsDialog = true },
+                    onImport = ::importBooks,
+                    onResetFilters = {
+                        query = ""
+                        debouncedQuery = ""
+                        filter = UnifiedLibraryFilter.ALL
+                        viewModel.updateLibraryFilters(LibraryFilters())
+                    },
                 )
                 UnifiedLibrarySection.AUDIOBOOKS -> AudiobooksLibrarySection(
                     modifier = Modifier.padding(padding),
@@ -714,6 +847,13 @@ fun UnifiedLibraryScreen(
                             onAddSelectedBooks = { viewModel.addBooksToShelf(shelfBeingAddedTo.id) },
                             onBack = { shelfIdAddingBooks = null }
                         )
+                    } else if (selectedShelfId == null) {
+                        MyShelfCollections(
+                            modifier = Modifier.padding(padding),
+                            shelves = uiState.shelves,
+                            onShelfSelected = { viewModel.navigateToShelf(it.id) },
+                            onCreateShelf = viewModel::showCreateShelfDialog,
+                        )
                     } else {
                         UnifiedShelvesSection(
                             modifier = Modifier.padding(padding),
@@ -723,12 +863,14 @@ fun UnifiedLibraryScreen(
                             downloadingBookIds = uiState.downloadingBookIds,
                             usePdfFileNameAsDisplayName = uiState.usePdfFileNameAsDisplayName,
                             widthSizeClass = widthSizeClass,
-                            onShelfSelected = { selectedShelfId = it.id },
-                            onBreadcrumbNavigate = { shelfId -> selectedShelfId = shelfId },
+                            onShelfSelected = { viewModel.navigateToShelf(it.id) },
+                            onBreadcrumbNavigate = { shelfId ->
+                                if (shelfId == null) viewModel.unselectShelf() else viewModel.navigateToShelf(shelfId)
+                            },
                             onRenameShelf = { shelfId -> shelfIdPendingRename = shelfId },
                             onDeleteShelf = { shelfId -> shelfIdPendingDelete = shelfId },
                             onAddBooks = { shelfId -> shelfIdAddingBooks = shelfId },
-                            onBookClick = viewModel::onRecentFileClicked,
+                            onBookClick = ::openLibraryBook,
                             onBookLongClick = viewModel::onRecentItemLongPress,
                             )
                     }
@@ -775,8 +917,12 @@ fun UnifiedLibraryScreen(
                     }
                 }
             }
+            }
             },
         )
+            }
+        }
+        }
             }
         }
     }
@@ -947,7 +1093,7 @@ fun UnifiedLibraryScreen(
             onConfirm = {
                 viewModel.deleteShelf(shelfId)
                 shelfIdPendingDelete = null
-                if (selectedShelfId == shelfId) selectedShelfId = null
+                if (selectedShelfId == shelfId) viewModel.unselectShelf()
             },
             onDismiss = { shelfIdPendingDelete = null }
         )
@@ -1040,7 +1186,7 @@ private fun UnifiedLibraryDrawer(
                         plateColor = MaterialTheme.colorScheme.surface,
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.myshelf_brand), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(stringResource(R.string.unified_library_drawer_title), style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -1058,7 +1204,11 @@ private fun UnifiedLibraryDrawer(
                     aiSettingsAvailable = !BuildConfig.IS_OFFLINE,
                 ),
             )
-            drawerModel.destinations.forEach { destination ->
+            // Home, Library and Collections share the primary bottom bar / rail.
+            // The drawer keeps the existing secondary destinations and settings.
+            drawerModel.destinations.filter {
+                it != MobileUnifiedLibraryDrawerDestination.HOME && it != MobileUnifiedLibraryDrawerDestination.SHELVES
+            }.forEach { destination ->
                 when (destination) {
                     MobileUnifiedLibraryDrawerDestination.HOME -> UnifiedLibraryDestination(
                         stringResource(R.string.unified_library_home),
@@ -1161,12 +1311,19 @@ internal fun ReadStatusFilter.toUnifiedLibraryFilter(): UnifiedLibraryFilter = w
     ReadStatusFilter.COMPLETED -> UnifiedLibraryFilter.FINISHED
 }
 
-internal fun findContinueReadingBook(books: List<RecentFileItem>): RecentFileItem? {
-    if (books.isEmpty()) return null
-    val mapper = SharedProjectionBookItemCache(maxEntries = books.size)
-    val picked = mobileUnifiedContinueReadingBook(mapper.map(books)) ?: return null
-    return books.firstOrNull { it.bookId == picked.id }
-}
+internal fun findContinueReadingBook(books: List<RecentFileItem>): RecentFileItem? =
+    books.asSequence()
+        .filterNot { it.isDeleted || it.type == FileType.AUDIOBOOK }
+        .filter { item ->
+            val progress = item.progressPercentage?.takeIf { it.isFinite() }
+            progress?.let { it >= 100f } != true && (
+                progress?.let { it > 0f } == true ||
+                    item.lastPage != null || item.lastChapterIndex != null ||
+                    !item.lastPositionCfi.isNullOrBlank() || item.locatorBlockIndex != null ||
+                    item.locatorCharOffset != null
+                )
+        }
+        .maxByOrNull { maxOf(it.readingPositionModifiedTimestamp, it.timestamp) }
 
 internal fun filterUnifiedLibraryBooks(books: List<RecentFileItem>, filter: UnifiedLibraryFilter, query: String): List<RecentFileItem> {
     if (books.isEmpty()) return emptyList()

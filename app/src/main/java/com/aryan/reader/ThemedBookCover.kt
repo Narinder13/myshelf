@@ -17,7 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -25,6 +28,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,12 +54,11 @@ fun ThemedBookCover(
         item.coverImagePath
             ?.takeIf { it.isNotBlank() }
             ?.let(::File)
-            ?.takeIf { it.isFile }
     }
     // Stable request identity: without remember, every recomposition builds a
     // new ImageRequest and Coil restarts the load (flicker + decode churn).
     // Coil sizes the decode to the laid-out AsyncImage automatically.
-    val coverRequest = remember(coverFile) {
+    val coverRequest = remember(context, coverFile) {
         coverFile?.let {
             ImageRequest.Builder(context)
                 .data(it)
@@ -63,19 +68,27 @@ fun ThemedBookCover(
                 .build()
         }
     }
+    var artworkLoaded by remember(coverRequest) { mutableStateOf(false) }
 
-    Box(modifier = modifier) {
-        // Generated art is only a fallback: composing it under an opaque
-        // cover wastes a full gradient + text draw on every card.
+    Box(modifier = modifier.clearAndSetSemantics {
+        contentDescription?.let { this.contentDescription = it }
+    }) {
+        // Coil performs file access/decoding off the main thread. A missing or
+        // corrupt cached cover uses the same fallback as a book without artwork.
+        // Stop drawing the generated cover once the real image has loaded.
+        if (!artworkLoaded) {
+            GeneratedBookCover(item = item, modifier = Modifier.fillMaxSize())
+        }
         if (coverRequest != null) {
             AsyncImage(
                 model = coverRequest,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 contentScale = contentScale,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                onLoading = { artworkLoaded = false },
+                onSuccess = { artworkLoaded = true },
+                onError = { artworkLoaded = false },
             )
-        } else {
-            GeneratedBookCover(item = item, modifier = Modifier.fillMaxSize())
         }
     }
 }
@@ -157,6 +170,7 @@ private fun GeneratedBookCover(
                 fontSize = if (compact) 12.sp else 17.sp,
                 lineHeight = if (compact) 14.sp else 20.sp,
                 fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Serif,
                 textAlign = TextAlign.Center,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
@@ -193,8 +207,8 @@ internal fun generatedBookCoverColor(item: RecentFileItem): Color {
             colorScheme.primaryContainer,
             colorScheme.secondaryContainer,
             colorScheme.tertiaryContainer,
-            lerp(colorScheme.primary, colorScheme.surface, 0.30f),
-            lerp(colorScheme.secondary, colorScheme.surface, 0.26f)
+            lerp(colorScheme.primaryContainer, colorScheme.surface, 0.30f),
+            lerp(colorScheme.secondaryContainer, colorScheme.surface, 0.26f)
         )
         baseOptions[item.coverColorSeed() % baseOptions.size]
     }

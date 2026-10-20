@@ -1,46 +1,62 @@
 package com.aryan.reader
 
-import android.view.View
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aryan.reader.data.RecentFileItem
 import com.aryan.reader.shared.CloudFolderSyncSelection
 import com.aryan.reader.shared.SortOrder
 import com.aryan.reader.shared.ui.AppIcon
+import com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass
+import com.aryan.reader.shared.ui.sharedMobileWidthClassForWidth
+import com.aryan.reader.ui.theme.MyShelfLayout
+import kotlin.math.roundToInt
 
 /**
  * Section-level composables for Library Beta.
@@ -136,78 +152,75 @@ internal fun UnifiedCreateShelfDialog(onConfirm: (String) -> Unit, onDismiss: ()
 
 // Hoisted: shape allocation + clip without the offscreen shadow pass the
 // scrolling continue card used to pay per recomposition.
-internal val ContinueReadingCoverShape = RoundedCornerShape(18.dp)
+internal val ContinueReadingCoverShape = RoundedCornerShape(8.dp)
 
 @Composable
-internal fun UnifiedContinueReadingCard(item: RecentFileItem, onClick: () -> Unit, modifier: Modifier = Modifier) {    val progress = (item.progressPercentage ?: 0f).coerceIn(0f, 100f)
-    val appLayoutDirection = if (LocalConfiguration.current.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
-        LayoutDirection.Rtl
-    } else {
-        LayoutDirection.Ltr
-    }
-    com.aryan.reader.shared.ui.SharedAndroidUnifiedContinueCard(
-        sectionLabel = stringResource(R.string.unified_library_continue_reading),
-        title = item.cardTitle(),
-        author = item.cardAuthor(),
-        progressPercent = progress,
-        progressLabel = stringResource(R.string.progress_complete, progress.toInt()),
-        sourceLabel = if (item.sourceFolderUri != null) "· Local folder" else null,
-        coverTone = generatedBookCoverColor(item),
-        cardLayoutDirection = appLayoutDirection,
-        onClick = onClick,
-        modifier = modifier,
-        cover = { coverModifier ->
-                    ThemedBookCover(
-                        item = item,
-                modifier = coverModifier
-                            .size(94.dp, 146.dp)
-                            .clip(ContinueReadingCoverShape),
-                        contentDescription = item.displayName,
-                contentScale = ContentScale.Crop,
-                    )
-        },
-        fileTypeBadge = {
-                        FileTypeBadge(type = item.type, overlay = true, compact = true)
-        },
-    )
-}
-
-@Composable
-internal fun UnifiedLibraryTopBar(
-    section: UnifiedLibrarySection,
-    selectedShelf: Shelf?,
-    onMenuClick: () -> Unit,
-    onBackFromShelf: () -> Unit,
-    uiState: ReaderScreenState,
-    onAccountClick: () -> Unit,
-    searchQuery: String?,
-    onSearchQueryChange: (String) -> Unit,
+internal fun UnifiedContinueReadingCard(
+    item: RecentFileItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    usePdfFileNameAsDisplayName: Boolean = false,
 ) {
-    val title = selectedShelf?.name ?: when (section) {
-        UnifiedLibrarySection.HOME -> null
-        UnifiedLibrarySection.AUDIOBOOKS -> stringResource(R.string.listen_title)
-        UnifiedLibrarySection.SHELVES -> stringResource(R.string.tab_shelves)
-        UnifiedLibrarySection.FOLDERS -> stringResource(R.string.tab_folders)
-        UnifiedLibrarySection.CATALOGS -> stringResource(R.string.tab_catalogs)
+    val progress = item.knownReadingProgress()
+    val author = item.knownCardAuthor()
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().testTag("UnifiedLibraryContinueReading"),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(MyShelfLayout.pagePadding),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ThemedBookCover(
+                item = item,
+                modifier = Modifier.size(88.dp, 132.dp)
+                    .clip(ContinueReadingCoverShape)
+                    .testTag("UnifiedLibraryContinueReadingCover"),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+            )
+            Column(
+                modifier = Modifier.weight(1f).testTag("UnifiedLibraryContinueReadingContent"),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    stringResource(R.string.unified_library_continue_reading),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Text(
+                    item.cardTitle(usePdfFileNameAsDisplayName),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (author != null) {
+                    Text(
+                        author,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (progress != null) {
+                    Text(stringResource(R.string.progress_complete, progress.roundToInt()), style = MaterialTheme.typography.labelMedium)
+                    LinearProgressIndicator(
+                        progress = { progress / 100f },
+                        modifier = Modifier.fillMaxWidth().testTag("UnifiedLibraryContinueReadingProgress"),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.18f),
+                    )
+                }
+                Button(onClick = onClick) {
+                    Text(stringResource(R.string.action_continue_reading))
+                }
+            }
+        }
     }
-    com.aryan.reader.shared.ui.SharedAndroidUnifiedTopBar(
-        title = title,
-        showingShelf = selectedShelf != null,
-        drawerDescription = stringResource(R.string.unified_library_drawer_title),
-        backToShelvesDescription = if (selectedShelf?.parentShelfId != null) {
-            stringResource(R.string.action_back)
-        } else {
-            stringResource(R.string.unified_library_back_to_shelves)
-        },
-        onMenu = onMenuClick,
-        onBackFromShelf = onBackFromShelf,
-        onAccount = onAccountClick,
-        accountAvatar = { UnifiedProfileAvatar(uiState) },
-        searchQuery = searchQuery,
-        searchPlaceholder = stringResource(R.string.unified_library_search_books),
-        clearSearchDescription = stringResource(R.string.content_desc_clear_query),
-        onSearchQueryChange = onSearchQueryChange,
-    )
 }
 
 @Composable
@@ -234,97 +247,6 @@ internal fun UnifiedProfileAvatar(uiState: ReaderScreenState) {
 }
 
 @Composable
-internal fun UnifiedLibraryHome(
-    modifier: Modifier,
-    books: List<RecentFileItem>,
-    continueReading: RecentFileItem?,
-    filter: UnifiedLibraryFilter,
-    query: String,
-    sortOrder: SortOrder,
-    advancedFilterCount: Int,
-    useListView: Boolean,
-    selectedBookIds: Set<String>,
-    pinnedBookIds: Set<String>,
-    downloadingBookIds: Set<String>,
-    usePdfFileNameAsDisplayName: Boolean,
-    onFilterChange: (UnifiedLibraryFilter) -> Unit,
-    onControlsClick: () -> Unit,
-    onAdvancedFiltersClick: () -> Unit,
-    onListViewChange: (Boolean) -> Unit,
-    onBookClick: (RecentFileItem) -> Unit,
-    onBookLongClick: (RecentFileItem) -> Unit,
-    openTabs: List<RecentFileItem>,
-    tabsEnabled: Boolean,
-    onCloseTab: (RecentFileItem) -> Unit,
-    onCloseAllTabs: () -> Unit,
-    widthSizeClass: WindowWidthSizeClass,
-) {
-    com.aryan.reader.shared.ui.SharedAndroidUnifiedLibraryHome(
-        books = books,
-        continueReading = continueReading.takeIf { filter == UnifiedLibraryFilter.ALL && query.isBlank() },
-        filter = filter,
-        sortLabel = stringResource(sortOrder.labelRes),
-        advancedFilterCount = advancedFilterCount,
-        useListView = useListView,
-        strings = com.aryan.reader.shared.ui.SharedAndroidUnifiedHomeStrings(
-            noBooks = stringResource(R.string.unified_library_no_books),
-            filterBooks = stringResource(R.string.content_desc_filter),
-            gridView = stringResource(R.string.unified_library_grid_view),
-            listView = stringResource(R.string.unified_library_list_view),
-            filterLabels = UnifiedLibraryFilter.entries.associateWith { stringResource(it.labelRes) },
-        ),
-        itemKey = { it.bookId },
-        onFilterChange = onFilterChange,
-        onControls = onControlsClick,
-        onAdvancedFilters = onAdvancedFiltersClick,
-        onListViewChange = onListViewChange,
-        openTabsContent = {
-            com.aryan.reader.shared.ui.SharedAndroidActiveTabsRow(
-                openTabs = openTabs,
-                tabsEnabled = tabsEnabled,
-                activeTabsLabel = stringResource(R.string.active_tabs),
-                closeAllTabsDescription = stringResource(R.string.close_all_tabs),
-                closeTabDescription = stringResource(R.string.close_tab),
-                itemKey = { it.bookId },
-                itemTitle = { it.title?.takeIf(String::isNotBlank) ?: it.displayName },
-                onItemClick = onBookClick,
-                onCloseTab = onCloseTab,
-                onCloseAllTabs = onCloseAllTabs,
-            )
-        },
-        continueCard = { item, cardModifier -> UnifiedContinueReadingCard(item, { onBookClick(item) }, cardModifier) },
-        bookCard = { item ->
-            RecentFileCard(
-                item = item,
-                isSelected = item.bookId in selectedBookIds,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { onBookClick(item) },
-                onLongClick = { onBookLongClick(item) },
-                isDownloading = item.bookId in downloadingBookIds,
-                usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
-            )
-        },
-        bookListItem = { item ->
-            LibraryListItem(
-                item = item,
-                isSelected = item.bookId in selectedBookIds,
-                isPinned = item.bookId in pinnedBookIds,
-                onItemClick = { onBookClick(item) },
-                onItemLongClick = { onBookLongClick(item) },
-                isDownloading = item.bookId in downloadingBookIds,
-                usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
-            )
-        },
-        widthClass = when (widthSizeClass) {
-            WindowWidthSizeClass.Compact -> com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass.COMPACT
-            WindowWidthSizeClass.Medium -> com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass.MEDIUM
-            else -> com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass.EXPANDED
-        },
-        modifier = modifier,
-    )
-}
-
-@Composable
 internal fun UnifiedShelvesSection(
     modifier: Modifier,
     shelves: List<Shelf>,
@@ -342,7 +264,6 @@ internal fun UnifiedShelvesSection(
     onBookLongClick: (RecentFileItem) -> Unit,
 ) {
     val selectedShelf = shelves.find { it.id == selectedShelfId }
-    val visibleShelves = remember(shelves) { shelves.filter { it.type != ShelfType.TAG && it.parentShelfId == null } }
     val childShelves = remember(shelves, selectedShelf) {
         selectedShelf?.childShelfIds?.mapNotNull { childId -> shelves.find { it.id == childId } } ?: emptyList()
     }
@@ -355,58 +276,118 @@ internal fun UnifiedShelvesSection(
             parentIdOf = { it.parentShelfId },
         )
     }
-    com.aryan.reader.shared.ui.SharedAndroidUnifiedShelves(
-        visibleShelves = visibleShelves,
-        selectedShelf = selectedShelf,
-        selectedBooks = selectedShelf?.directBooks.orEmpty(),
-        noShelvesLabel = stringResource(R.string.unified_library_no_shelves),
-        shelfKey = { it.id },
-        shelfName = { it.name },
-        shelfBookCountLabel = { unifiedShelfCountLabel(it) },
-        bookKey = { it.bookId },
-        onShelfSelected = onShelfSelected,
-        widthClass = when (widthSizeClass) {
-            WindowWidthSizeClass.Compact -> com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass.COMPACT
-            WindowWidthSizeClass.Medium -> com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass.MEDIUM
-            else -> com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass.EXPANDED
-        },
-        modifier = modifier,
-        childShelves = childShelves,
-        onChildShelfSelected = onShelfSelected,
-        selectedShelfActions = { shelf ->
-            UnifiedShelfActionsMenu(
-                canMutate = shelf.type == ShelfType.MANUAL &&
-                    com.aryan.reader.shared.SharedLibraryEditor.canMutateShelf(shelf.id),
-                onAddBooks = { onAddBooks(shelf.id) },
-                onRename = { onRenameShelf(shelf.id) },
-                onDelete = { onDeleteShelf(shelf.id) },
-            )
-        },
-        foldersSectionLabel = stringResource(R.string.section_folders),
-        filesSectionLabel = stringResource(R.string.section_files),
-        emptyShelfLabel = stringResource(R.string.shelf_empty),
-        breadcrumbContent = {
-            if (selectedShelf != null) {
+    if (selectedShelf == null) {
+        Column(
+            modifier.fillMaxSize().padding(MyShelfLayout.pagePadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(stringResource(R.string.unified_library_no_shelves), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { onBreadcrumbNavigate(null) }) {
+                Text(stringResource(R.string.unified_library_back_to_shelves))
+            }
+        }
+        return
+    }
+    val gridState = rememberLazyGridState()
+    BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val minimumCoverWidth = if (sharedMobileWidthClassForWidth(maxWidth) == SharedAndroidHomeWidthClass.COMPACT) {
+            MyShelfLayout.compactBookWidth
+        } else MyShelfLayout.largeBookWidth
+        Column(Modifier.widthIn(max = MyShelfLayout.contentMaxWidth).fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 com.aryan.reader.shared.ui.SharedMobileShelfBreadcrumb(
                     entries = breadcrumbEntries,
                     onNavigate = { entry -> onBreadcrumbNavigate(entry.id) },
                     homeContentDescription = stringResource(R.string.tab_shelves),
-                    modifier = Modifier.padding(horizontal = 20.dp).padding(top = 12.dp),
+                    modifier = Modifier.weight(1f).padding(start = MyShelfLayout.pagePadding),
+                )
+                UnifiedShelfActionsMenu(
+                    canMutate = selectedShelf.type == ShelfType.MANUAL &&
+                        com.aryan.reader.shared.SharedLibraryEditor.canMutateShelf(selectedShelf.id),
+                    onAddBooks = { onAddBooks(selectedShelf.id) },
+                    onRename = { onRenameShelf(selectedShelf.id) },
+                    onDelete = { onDeleteShelf(selectedShelf.id) },
                 )
             }
-        },
-        bookCard = { item ->
-            RecentFileCard(
-                item = item,
-                isSelected = item.bookId in selectedBookIds,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { onBookClick(item) },
-                onLongClick = { onBookLongClick(item) },
-                isDownloading = item.bookId in downloadingBookIds,
-                usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+            Text(
+                unifiedShelfCountLabel(selectedShelf),
+                modifier = Modifier.padding(horizontal = MyShelfLayout.pagePadding, vertical = 12.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        },
-    )
+            if (childShelves.isEmpty() && selectedShelf.directBooks.isEmpty()) {
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().padding(MyShelfLayout.pagePadding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(stringResource(R.string.shelf_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { onAddBooks(selectedShelf.id) }) {
+                        Text(stringResource(R.string.fab_add_books))
+                    }
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minimumCoverWidth),
+                    state = gridState,
+                    modifier = Modifier.weight(1f).fillMaxWidth().testTag("MyShelfSelectedCollection"),
+                    contentPadding = PaddingValues(MyShelfLayout.pagePadding, 4.dp, MyShelfLayout.pagePadding, 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(MyShelfLayout.bookSpacing),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                ) {
+                    if (childShelves.isNotEmpty()) {
+                        item(key = "folders_label", span = { GridItemSpan(maxLineSpan) }) {
+                            Text(stringResource(R.string.section_folders), style = MaterialTheme.typography.titleMedium)
+                        }
+                        items(childShelves, key = { "shelf:${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { child ->
+                            MyShelfChildShelfRow(child, { onShelfSelected(child) })
+                        }
+                        if (selectedShelf.directBooks.isNotEmpty()) {
+                            item(key = "books_label", span = { GridItemSpan(maxLineSpan) }) {
+                                Text(stringResource(R.string.section_files), style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                    items(selectedShelf.directBooks, key = { "book:${it.bookId}" }) { item ->
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                            RecentFileCard(
+                                item = item,
+                                isSelected = item.bookId in selectedBookIds,
+                                modifier = Modifier.widthIn(max = MyShelfLayout.maxBookWidth).fillMaxWidth(),
+                                onClick = { onBookClick(item) },
+                                onLongClick = { onBookLongClick(item) },
+                                isDownloading = item.bookId in downloadingBookIds,
+                                usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MyShelfChildShelfRow(shelf: Shelf, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.Folder, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f)) {
+                Text(shelf.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(unifiedShelfCountLabel(shelf), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 /**

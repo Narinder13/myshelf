@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="myshelf_home_title">A little time for a good book.</string>
+    <string name="myshelf_home_subtitle">Your reading room, wherever you are.</string>
+    <string name="myshelf_recently_added">Recently added</string>
+    <string name="myshelf_view_all">View all</string>
+    <string name="myshelf_your_collections">Your collections</string>
+    <string name="myshelf_new_collection">New collection</string>
+    <string name="myshelf_collections_subtitle">Keep your books together, your way.</string>
+    <string name="myshelf_collections_empty_title">Make room for a collection</string>
+    <string name="myshelf_collections_empty_body">Bring your favourites, next reads, or any books you like together in a shelf.</string>
+    <string name="myshelf_empty_title">Your next chapter starts here</string>
+    <string name="myshelf_empty_body">Add a PDF or EPUB to begin your personal library. Your local books are ready to read offline, without an account.</string>
+    <string name="myshelf_loading">Getting your books ready…</string>
+</resources>
