@@ -726,6 +726,14 @@ private fun MyShelfUnifiedLibraryContent(
                     onBookClick = ::openLibraryBook,
                     onBookLongClick = viewModel::onRecentItemLongPress,
                     onViewLibrary = { navigatePrimary(MyShelfDestination.LIBRARY) },
+                    onBrowseFilter = { chosenFilter ->
+                        query = ""
+                        debouncedQuery = ""
+                        searchExpanded = false
+                        filter = chosenFilter
+                        viewModel.updateLibraryFilters(LibraryFilters())
+                        navigatePrimary(MyShelfDestination.LIBRARY)
+                    },
                     onShelfSelected = { shelf ->
                         viewModel.navigateToShelf(shelf.id)
                         viewModel.setUnifiedLibrarySection(UnifiedLibrarySection.SHELVES.persistedValue)

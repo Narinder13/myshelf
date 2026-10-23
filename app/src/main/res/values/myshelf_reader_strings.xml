@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="myshelf_reading_style">Reading style</string>
+    <string name="myshelf_reader_scroll">Scroll up and down</string>
+    <string name="myshelf_reader_scroll_beta">Scroll (beta)</string>
+    <string name="myshelf_reader_swipe">Swipe left and right</string>
+    <string name="myshelf_reader_book_turn">Book page turn</string>
+    <string name="myshelf_reader_book_turn_zoom_hint">Page turn effect at original zoom</string>
+    <string name="myshelf_reader_right_to_left">Read right to left</string>
+</resources>

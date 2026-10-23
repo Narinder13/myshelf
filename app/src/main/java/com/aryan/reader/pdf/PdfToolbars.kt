@@ -462,8 +462,9 @@ internal fun PdfTopBar(
                                         }
                                         PdfOverflowMenuSection.READING_MODE -> {
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_change_reading_mode)) },
+                                                text = { Text(stringResource(R.string.myshelf_reading_style)) },
                                                 onClick = { showReadingModeExpanded = !showReadingModeExpanded },
+                                                leadingIcon = { Icon(Icons.Default.Book, contentDescription = null) },
                                                 trailingIcon = {
                                                     Icon(
                                                         Icons.Default.ArrowDropDown,
@@ -474,36 +475,62 @@ internal fun PdfTopBar(
                                             )
                                             if (showReadingModeExpanded) {
                                                 DropdownMenuItem(
-                                                    text = { Text(stringResource(R.string.menu_reading_mode_vertical)) },
+                                                    text = { Text(stringResource(R.string.myshelf_reader_scroll)) },
                                                     enabled = !isTtsSessionActive,
                                                     onClick = { onChangeDisplayMode(DisplayMode.VERTICAL_SCROLL); showMoreMenu = false },
+                                                    leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.rotate(90f)) },
                                                     trailingIcon = { if (displayMode == DisplayMode.VERTICAL_SCROLL) Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected)) }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text(stringResource(R.string.menu_reading_mode_paginated)) },
+                                                    text = { Text(stringResource(R.string.myshelf_reader_swipe)) },
                                                     enabled = !isTtsSessionActive,
                                                     onClick = {
-                                                        onSetRightToLeftPagination(false)
+                                                        if (pageTurnAnimationEnabled) onTogglePageTurnAnimation()
                                                         onChangeDisplayMode(DisplayMode.PAGINATION)
                                                         showMoreMenu = false
                                                     },
+                                                    leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
                                                     trailingIcon = {
-                                                        if (displayMode == DisplayMode.PAGINATION && !isRightToLeftPagination) {
+                                                        if (displayMode == DisplayMode.PAGINATION && !pageTurnAnimationEnabled) {
                                                             Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected))
                                                         }
                                                     }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text(stringResource(R.string.menu_right_to_left_pagination)) },
+                                                    text = {
+                                                        Column {
+                                                            Text(stringResource(R.string.myshelf_reader_book_turn))
+                                                            Text(
+                                                                stringResource(R.string.myshelf_reader_book_turn_zoom_hint),
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+                                                    },
                                                     enabled = !isTtsSessionActive,
                                                     onClick = {
-                                                        onSetRightToLeftPagination(true)
+                                                        if (!pageTurnAnimationEnabled) onTogglePageTurnAnimation()
                                                         onChangeDisplayMode(DisplayMode.PAGINATION)
                                                         showMoreMenu = false
                                                     },
+                                                    leadingIcon = { Icon(Icons.Default.Book, contentDescription = null) },
                                                     trailingIcon = {
-                                                        if (displayMode == DisplayMode.PAGINATION && isRightToLeftPagination) {
+                                                        if (displayMode == DisplayMode.PAGINATION && pageTurnAnimationEnabled) {
                                                             Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_selected))
+                                                        }
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.myshelf_reader_right_to_left)) },
+                                                    enabled = !isTtsSessionActive && displayMode == DisplayMode.PAGINATION,
+                                                    onClick = {
+                                                        onSetRightToLeftPagination(!isRightToLeftPagination)
+                                                        showMoreMenu = false
+                                                    },
+                                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) },
+                                                    trailingIcon = {
+                                                        if (isRightToLeftPagination) {
+                                                            Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.content_desc_enabled))
                                                         }
                                                     }
                                                 )
