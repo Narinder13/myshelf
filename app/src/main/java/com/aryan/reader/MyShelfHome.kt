@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.aryan.reader.data.RecentFileItem
 import com.aryan.reader.shared.ui.SharedAndroidHomeWidthClass
 import com.aryan.reader.shared.ui.sharedMobileWidthClassForWidth
@@ -83,9 +85,12 @@ internal fun MyShelfHome(
     modifier: Modifier = Modifier,
     selectedBookIds: Set<String> = emptySet(),
     pinnedBookIds: Set<String> = emptySet(),
+    onBrowseFilter: (UnifiedLibraryFilter) -> Unit = {},
     openTabsContent: @Composable () -> Unit = {},
 ) {
     val recentBooks = remember(allBooks) { recentlyAddedMyShelfBooks(allBooks) }
+    val pinnedBooks = remember(allBooks, pinnedBookIds) { pinnedMyShelfBooks(allBooks, pinnedBookIds) }
+    val statusCounts = remember(allBooks) { myShelfHomeStatusCounts(allBooks) }
     val collections = remember(shelves) {
         shelves.filter { it.type == ShelfType.MANUAL && it.parentShelfId == null }
     }
@@ -132,6 +137,35 @@ internal fun MyShelfHome(
                     )
                 }
             }
+            if (recentBooks.isNotEmpty()) {
+                item(key = "reading_shortcuts") {
+                    MyShelfHomeQuickAccess(statusCounts, onBrowseFilter)
+                }
+            }
+            if (pinnedBooks.isNotEmpty()) {
+                item(key = "pinned_books") {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            Modifier.padding(horizontal = gutter),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Default.PushPin, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.myshelf_home_pinned), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Serif)
+                        }
+                        MyShelfHomeBookRow(
+                            books = pinnedBooks,
+                            bookWidth = bookWidth,
+                            selectedBookIds = selectedBookIds,
+                            pinnedBookIds = pinnedBookIds,
+                            downloadingBookIds = downloadingBookIds,
+                            usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+                            onBookClick = onBookClick,
+                            onBookLongClick = onBookLongClick,
+                        )
+                    }
+                }
+            }
             if (recentBooks.isEmpty() && !isLoading) {
                 item(key = "empty_library") {
                     MyShelfEmptyLibrary(onImport, Modifier.padding(horizontal = gutter))
@@ -145,23 +179,16 @@ internal fun MyShelfHome(
                             onAction = onViewLibrary,
                             modifier = Modifier.padding(horizontal = gutter),
                         )
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = gutter),
-                            horizontalArrangement = Arrangement.spacedBy(MyShelfLayout.bookSpacing),
-                        ) {
-                            items(recentBooks, key = { it.bookId }) { item ->
-                                RecentFileCard(
-                                    item = item,
-                                    isSelected = item.bookId in selectedBookIds,
-                                    isPinned = item.bookId in pinnedBookIds,
-                                    modifier = Modifier.width(bookWidth),
-                                    onClick = { onBookClick(item) },
-                                    onLongClick = { onBookLongClick(item) },
-                                    isDownloading = item.bookId in downloadingBookIds,
-                                    usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
-                                )
-                            }
-                        }
+                        MyShelfHomeBookRow(
+                            books = recentBooks,
+                            bookWidth = bookWidth,
+                            selectedBookIds = selectedBookIds,
+                            pinnedBookIds = pinnedBookIds,
+                            downloadingBookIds = downloadingBookIds,
+                            usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+                            onBookClick = onBookClick,
+                            onBookLongClick = onBookLongClick,
+                        )
                     }
                 }
             }
@@ -191,6 +218,36 @@ internal fun MyShelfHome(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MyShelfHomeBookRow(
+    books: List<RecentFileItem>,
+    bookWidth: Dp,
+    selectedBookIds: Set<String>,
+    pinnedBookIds: Set<String>,
+    downloadingBookIds: Set<String>,
+    usePdfFileNameAsDisplayName: Boolean,
+    onBookClick: (RecentFileItem) -> Unit,
+    onBookLongClick: (RecentFileItem) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = MyShelfLayout.pagePadding),
+        horizontalArrangement = Arrangement.spacedBy(MyShelfLayout.bookSpacing),
+    ) {
+        items(books, key = { it.bookId }) { item ->
+            RecentFileCard(
+                item = item,
+                isSelected = item.bookId in selectedBookIds,
+                isPinned = item.bookId in pinnedBookIds,
+                modifier = Modifier.width(bookWidth),
+                onClick = { onBookClick(item) },
+                onLongClick = { onBookLongClick(item) },
+                isDownloading = item.bookId in downloadingBookIds,
+                usePdfFileNameAsDisplayName = usePdfFileNameAsDisplayName,
+            )
         }
     }
 }
@@ -282,9 +339,14 @@ private fun MyShelfEmptyLibrary(onImport: () -> Unit, modifier: Modifier = Modif
 private fun MyShelfEmptyCollections(onCreateShelf: () -> Unit, modifier: Modifier = Modifier) {
     Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Default.Folder, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.tertiary)
             Text(stringResource(R.string.myshelf_collections_empty_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.myshelf_collections_empty_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedButton(onClick = onCreateShelf) { Text(stringResource(R.string.myshelf_new_collection)) }
+            OutlinedButton(onClick = onCreateShelf) {
+                Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.myshelf_new_collection))
+            }
         }
     }
 }

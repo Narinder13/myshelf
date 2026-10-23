@@ -12,10 +12,12 @@ import org.junit.Test
 class AndroidStringFormatResourcesTest {
 
     @Test
-    fun `oss flavor uses standard launcher label`() {
+    fun `main and oss flavor use MyShelf launcher label`() {
+        val mainStrings = readStringResources(File(findResDirectory(), "values/strings.xml"))
         val ossStrings = readStringResources(File(findOssResDirectory(), "values/strings.xml"))
 
-        assertEquals("Episteme", ossStrings["app_name"])
+        assertEquals("MyShelf", mainStrings["app_name"])
+        assertEquals("MyShelf", ossStrings["app_name"])
     }
 
     @Test

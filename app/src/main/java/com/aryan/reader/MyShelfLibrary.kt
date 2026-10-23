@@ -28,19 +28,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -157,7 +162,7 @@ internal fun MyShelfTopBar(
                 )
                 if (showBookActions) {
                     IconButton(onClick = onSearch) { Icon(Icons.Default.Search, stringResource(R.string.unified_library_search_books)) }
-                    IconButton(onClick = onImport, modifier = Modifier.testTag("UnifiedLibraryImport")) {
+                    FilledTonalIconButton(onClick = onImport, modifier = Modifier.testTag("UnifiedLibraryImport")) {
                         Icon(Icons.Default.Add, stringResource(R.string.fab_add_books))
                     }
                 }
@@ -248,10 +253,30 @@ internal fun MyShelfLibrary(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 item(key = "sort") {
-                    AssistChip(onClick = onControls, label = { Text(stringResource(sortOrder.labelRes)) })
+                    AssistChip(
+                        onClick = onControls,
+                        label = { Text(stringResource(sortOrder.labelRes)) },
+                        leadingIcon = { Icon(Icons.Default.Sort, null, Modifier.size(18.dp)) },
+                    )
                 }
                 items(UnifiedLibraryFilter.entries, key = { it.name }) { option ->
-                    FilterChip(selected = filter == option, onClick = { onFilterChange(option) }, label = { Text(stringResource(option.labelRes)) })
+                    FilterChip(
+                        selected = filter == option,
+                        onClick = { onFilterChange(option) },
+                        label = { Text(stringResource(option.labelRes)) },
+                        leadingIcon = {
+                            Icon(
+                                when (option) {
+                                    UnifiedLibraryFilter.ALL -> Icons.AutoMirrored.Filled.LibraryBooks
+                                    UnifiedLibraryFilter.READING -> Icons.Default.PlayArrow
+                                    UnifiedLibraryFilter.UNREAD -> Icons.Default.BookmarkBorder
+                                    UnifiedLibraryFilter.FINISHED -> Icons.Default.Check
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    )
                 }
             }
             when {

@@ -53,6 +53,7 @@ import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -561,8 +562,9 @@ fun EpubReaderTopBar(
                                     }
                                     EpubOverflowMenuSection.READING_MODE -> {
                                         DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.menu_change_reading_mode)) },
+                                            text = { Text(stringResource(R.string.myshelf_reading_style)) },
                                             onClick = { showReadingModeExpanded = !showReadingModeExpanded },
+                                            leadingIcon = { Icon(Icons.Default.Book, contentDescription = null) },
                                             trailingIcon = {
                                                 Icon(
                                                     Icons.Default.ArrowDropDown,
@@ -573,13 +575,14 @@ fun EpubReaderTopBar(
                                         )
                                         if (showReadingModeExpanded) {
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_reading_mode_vertical_webview)) },
+                                                text = { Text(stringResource(R.string.myshelf_reader_scroll)) },
                                                 enabled = !isTtsActive,
                                                 onClick = {
                                                     onUseNativeVerticalRendererChange(false)
                                                     showMoreMenu = false
                                                     onChangeRenderMode(RenderMode.VERTICAL_SCROLL)
                                                 },
+                                                leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.rotate(90f)) },
                                                 trailingIcon = {
                                                     if (currentRenderMode == RenderMode.VERTICAL_SCROLL && !useNativeVerticalRenderer) Icon(
                                                         Icons.Default.Check,
@@ -587,13 +590,14 @@ fun EpubReaderTopBar(
                                                     )
                                                 })
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_reading_mode_vertical_native)) },
+                                                text = { Text(stringResource(R.string.myshelf_reader_scroll_beta)) },
                                                 enabled = !isTtsActive,
                                                 onClick = {
                                                     onUseNativeVerticalRendererChange(true)
                                                     showMoreMenu = false
                                                     onChangeRenderMode(RenderMode.VERTICAL_SCROLL)
                                                 },
+                                                leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.rotate(90f)) },
                                                 trailingIcon = {
                                                     if (currentRenderMode == RenderMode.VERTICAL_SCROLL && useNativeVerticalRenderer) Icon(
                                                         Icons.Default.Check,
@@ -601,15 +605,16 @@ fun EpubReaderTopBar(
                                                     )
                                                 })
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_reading_mode_paginated)) },
+                                                text = { Text(stringResource(R.string.myshelf_reader_swipe)) },
                                                 enabled = !isTtsActive,
                                                 onClick = {
-                                                    onSetRightToLeftPagination(false)
+                                                    onTogglePageTurnAnimation(false)
                                                     showMoreMenu = false
                                                     onChangeRenderMode(RenderMode.PAGINATED)
                                                 },
+                                                leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
                                                 trailingIcon = {
-                                                    if (currentRenderMode == RenderMode.PAGINATED && !isRightToLeftPagination) {
+                                                    if (currentRenderMode == RenderMode.PAGINATED && !isPageTurnAnimationEnabled) {
                                                         Icon(
                                                             Icons.Default.Check,
                                                             contentDescription = stringResource(R.string.content_desc_selected)
@@ -617,19 +622,33 @@ fun EpubReaderTopBar(
                                                     }
                                                 })
                                             DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.menu_right_to_left_pagination)) },
+                                                text = { Text(stringResource(R.string.myshelf_reader_book_turn)) },
                                                 enabled = !isTtsActive,
                                                 onClick = {
-                                                    onSetRightToLeftPagination(true)
+                                                    onTogglePageTurnAnimation(true)
                                                     showMoreMenu = false
                                                     onChangeRenderMode(RenderMode.PAGINATED)
                                                 },
+                                                leadingIcon = { Icon(Icons.Default.Book, contentDescription = null) },
                                                 trailingIcon = {
-                                                    if (currentRenderMode == RenderMode.PAGINATED && isRightToLeftPagination) {
+                                                    if (currentRenderMode == RenderMode.PAGINATED && isPageTurnAnimationEnabled) {
                                                         Icon(
                                                             Icons.Default.Check,
                                                             contentDescription = stringResource(R.string.content_desc_selected)
                                                         )
+                                                    }
+                                                })
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.myshelf_reader_right_to_left)) },
+                                                enabled = !isTtsActive && currentRenderMode == RenderMode.PAGINATED,
+                                                onClick = {
+                                                    onSetRightToLeftPagination(!isRightToLeftPagination)
+                                                    showMoreMenu = false
+                                                },
+                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) },
+                                                trailingIcon = {
+                                                    if (isRightToLeftPagination) {
+                                                        Icon(Icons.Default.Check, contentDescription = stringResource(R.string.content_desc_enabled))
                                                     }
                                                 })
                                         }
